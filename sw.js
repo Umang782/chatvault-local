@@ -1,4 +1,4 @@
-const CACHE_NAME = "chatvault-local-v2";
+const CACHE_NAME = "chatvault-local-v4";
 const APP_FILES = [
   "./",
   "./chatvault-local.html",

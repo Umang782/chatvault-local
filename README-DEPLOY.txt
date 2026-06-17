@@ -1,13 +1,13 @@
 ChatVault Local - free deployment
 
 What this is:
-ChatVault Local is a static mobile app. It does not need a server database. When users open it, their chats and files are stored on their own device using browser storage.
+ChatVault Local is a static mobile app. It does not need a paid messaging server. When users open it, their chats and files are stored on their own device using browser storage.
 
 Best free host:
 Cloudflare Pages is the best fit for this app because it supports static sites, HTTPS, PWA install support, and a generous free plan. Current Cloudflare Pages free limits include 500 builds per month, 20,000 files per site, and 25 MiB maximum single-file asset size.
 
 Important:
-Deployment makes the app available at a public URL, but user data is still local to each device. If you open the app on Phone A, that archive is on Phone A. If you open it on Phone B, Phone B has its own archive unless you import a JSON backup.
+Deployment makes the app available at a public URL, but user data is still local to each device. If you open the app on Phone A, that archive is on Phone A. If you open it on Phone B, Phone B has its own archive unless you import a JSON backup or use optional cloud sync.
 
 Cloudflare Pages direct upload:
 1. Go to dash.cloudflare.com.
@@ -43,4 +43,4 @@ _headers
 README-CLOUD-SYNC.txt
 
 Free/unlimited reality:
-There is no monthly app server cost and no per-message limit for local use. Usage is limited by each user's device storage and browser storage quota. If you enable cloud sync, usage is also limited by your Firebase free-tier database quotas.
+There is no monthly app server cost and no per-message limit for local use. Usage is limited by each user's device storage and browser storage quota. Media is saved locally and can be exported in a ZIP. If you enable cloud sync, text uses Firebase Firestore and optional encrypted media upload uses Firebase Storage, both under Firebase free-tier quotas.

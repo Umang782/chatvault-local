@@ -443,7 +443,7 @@
 
     .composer {
       display: grid;
-      grid-template-columns: 42px 1fr 116px 42px;
+      grid-template-columns: 42px 1fr 150px 42px;
       gap: 9px;
       align-items: end;
       padding: 11px 14px;
@@ -454,6 +454,30 @@
     .composer-options {
       display: flex;
       gap: 7px;
+    }
+
+    .direction-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3px;
+      min-height: 40px;
+      padding: 3px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #e6ece9;
+    }
+
+    .direction-toggle button {
+      border-radius: 6px;
+      color: var(--muted);
+      background: transparent;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .direction-toggle button.active {
+      color: #fff;
+      background: var(--accent);
     }
 
     .side-section {
@@ -512,6 +536,45 @@
     .stat span {
       color: var(--muted);
       font-size: 11px;
+    }
+
+    .media-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+    }
+
+    .media-tile {
+      position: relative;
+      min-height: 74px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-soft);
+    }
+
+    .media-tile img,
+    .media-tile video {
+      width: 100%;
+      height: 100%;
+      min-height: 74px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .media-tile span {
+      position: absolute;
+      left: 4px;
+      right: 4px;
+      bottom: 4px;
+      overflow: hidden;
+      padding: 3px 5px;
+      border-radius: 6px;
+      color: #fff;
+      background: rgba(0,0,0,0.52);
+      font-size: 10px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .modal-backdrop {
@@ -660,13 +723,24 @@
       }
 
       .composer {
-        grid-template-columns: 40px 1fr 56px;
+        grid-template-columns: 40px minmax(0, 1fr) 58px;
         gap: 7px;
         padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
       }
 
       .composer-options {
-        display: none;
+        grid-column: 1 / -1;
+        grid-row: 1;
+      }
+
+      .composer > .icon-btn,
+      .composer > .message-input,
+      .composer > .primary-btn {
+        grid-row: 2;
+      }
+
+      .direction-toggle {
+        min-height: 34px;
       }
 
       .message-input {
@@ -765,13 +839,13 @@
         <button class="icon-btn" id="attachBtn" title="Attach file">+</button>
         <textarea class="message-input" id="messageInput" placeholder="Type or paste a message"></textarea>
         <div class="composer-options">
-          <select class="select" id="directionSelect" title="Message side">
-            <option value="sent">Sent</option>
-            <option value="received">Received</option>
-          </select>
+          <div class="direction-toggle" aria-label="Message side">
+            <button type="button" class="active" data-direction="sent">Me</button>
+            <button type="button" data-direction="received">Them</button>
+          </div>
         </div>
         <button class="primary-btn" id="sendBtn" title="Save message">Save</button>
-        <input class="hidden" type="file" id="fileInput" multiple>
+        <input class="hidden" type="file" id="fileInput" multiple accept="image/*,video/*,audio/*,.pdf,.txt,.doc,.docx,.xls,.xlsx,.zip">
       </footer>
 
       <nav class="mobile-tabbar" aria-label="Mobile navigation">
@@ -797,8 +871,13 @@
         <h3>Archive Tools</h3>
         <div class="stack">
           <button class="primary-btn" id="importBtn">Import WhatsApp TXT</button>
+          <div class="row">
+            <button class="ghost-btn" id="exportTxtBtn">Chat TXT</button>
+            <button class="ghost-btn" id="exportHtmlBtn">Chat HTML</button>
+          </div>
           <button class="ghost-btn" id="exportAllBtn">Export All JSON</button>
           <button class="ghost-btn" id="backupHtmlBtn">Export All HTML</button>
+          <button class="ghost-btn" id="exportZipBtn">Export ZIP with Media</button>
           <button class="ghost-btn" id="installBtn">Install App</button>
           <button class="ghost-btn" id="persistBtn">Keep Storage Safe</button>
           <input class="hidden" type="file" id="importInput" accept=".txt,.json">
@@ -818,6 +897,8 @@
             <button class="ghost-btn" id="pullSyncBtn">Pull</button>
           </div>
           <button class="ghost-btn" id="pushSyncBtn">Push Now</button>
+          <button class="ghost-btn" id="pushMediaSyncBtn">Upload Media</button>
+          <button class="ghost-btn" id="pullMediaSyncBtn">Download Media</button>
           <p class="hint" id="syncStatus">Cloud sync is off. Data is local until you connect Firebase.</p>
         </div>
       </div>
@@ -828,6 +909,12 @@
           <div class="stat"><strong id="statMessages">0</strong><span>messages</span></div>
           <div class="stat"><strong id="statMedia">0</strong><span>files</span></div>
         </div>
+      </div>
+
+      <div class="side-section">
+        <h3>Media Gallery</h3>
+        <div class="media-grid" id="mediaGrid"></div>
+        <p class="hint" id="mediaSummary">No media saved yet.</p>
       </div>
 
       <div class="side-section">
@@ -879,7 +966,6 @@
       currentSub: document.getElementById("currentSub"),
       currentAvatar: document.getElementById("currentAvatar"),
       messageInput: document.getElementById("messageInput"),
-      directionSelect: document.getElementById("directionSelect"),
       sendBtn: document.getElementById("sendBtn"),
       attachBtn: document.getElementById("attachBtn"),
       fileInput: document.getElementById("fileInput"),
@@ -891,8 +977,11 @@
       closeModalBtn: document.getElementById("closeModalBtn"),
       cancelModalBtn: document.getElementById("cancelModalBtn"),
       exportChatBtn: document.getElementById("exportChatBtn"),
+      exportTxtBtn: document.getElementById("exportTxtBtn"),
+      exportHtmlBtn: document.getElementById("exportHtmlBtn"),
       exportAllBtn: document.getElementById("exportAllBtn"),
       backupHtmlBtn: document.getElementById("backupHtmlBtn"),
+      exportZipBtn: document.getElementById("exportZipBtn"),
       importBtn: document.getElementById("importBtn"),
       importInput: document.getElementById("importInput"),
       installBtn: document.getElementById("installBtn"),
@@ -904,10 +993,14 @@
       connectSyncBtn: document.getElementById("connectSyncBtn"),
       pullSyncBtn: document.getElementById("pullSyncBtn"),
       pushSyncBtn: document.getElementById("pushSyncBtn"),
+      pushMediaSyncBtn: document.getElementById("pushMediaSyncBtn"),
+      pullMediaSyncBtn: document.getElementById("pullMediaSyncBtn"),
       syncStatus: document.getElementById("syncStatus"),
       starFilterBtn: document.getElementById("starFilterBtn"),
       statMessages: document.getElementById("statMessages"),
       statMedia: document.getElementById("statMedia"),
+      mediaGrid: document.getElementById("mediaGrid"),
+      mediaSummary: document.getElementById("mediaSummary"),
       renameInput: document.getElementById("renameInput"),
       renameBtn: document.getElementById("renameBtn"),
       deleteChatBtn: document.getElementById("deleteChatBtn"),
@@ -927,11 +1020,13 @@
     let attachedFiles = [];
     let starredOnly = false;
     let installPrompt = null;
+    let selectedDirection = "sent";
     let sync = {
       enabled: false,
       app: null,
       auth: null,
       db: null,
+      storage: null,
       user: null,
       vaultId: "",
       passphrase: "",
@@ -949,6 +1044,7 @@
 
     function defaultState() {
       return {
+        media: {},
         chats: [
           {
             id: uid(),
@@ -1001,18 +1097,49 @@
 
     async function loadState() {
       const fromDb = await idbGet(STORAGE_KEY);
-      if (fromDb && Array.isArray(fromDb.chats)) return fromDb;
+      if (fromDb && Array.isArray(fromDb.chats)) return migrateState(fromDb);
 
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed.chats)) return parsed;
+          if (Array.isArray(parsed.chats)) return migrateState(parsed);
         } catch (error) {
           console.warn(error);
         }
       }
       return defaultState();
+    }
+
+    function migrateState(nextState) {
+      nextState.media = nextState.media || {};
+      nextState.chats.forEach(chat => {
+        chat.messages = chat.messages || [];
+        chat.messages.forEach(message => {
+          message.attachments = (message.attachments || []).map(file => {
+            if (file.mediaId) return file;
+            if (!file.data) return file;
+            const mediaId = file.id || uid();
+            nextState.media[mediaId] = {
+              id: mediaId,
+              name: file.name || "attachment",
+              type: file.type || "application/octet-stream",
+              size: file.size || dataUrlBytes(file.data),
+              storedSize: dataUrlBytes(file.data),
+              data: file.data,
+              createdAt: message.at || nowIso()
+            };
+            return {
+              mediaId,
+              name: file.name || "attachment",
+              type: file.type || "application/octet-stream",
+              size: file.size || dataUrlBytes(file.data),
+              storedSize: dataUrlBytes(file.data)
+            };
+          });
+        });
+      });
+      return nextState;
     }
 
     async function saveState() {
@@ -1065,6 +1192,7 @@
     function render() {
       renderChatList();
       renderCurrentChat();
+      renderMediaGallery();
       updateStorageInfo();
     }
 
@@ -1111,6 +1239,8 @@
         els.renameInput.value = "";
         els.statMessages.textContent = "0";
         els.statMedia.textContent = "0";
+        els.mediaGrid.innerHTML = "";
+        els.mediaSummary.textContent = "No media saved yet.";
         els.messages.innerHTML = `<div class="empty-state"><div><h2>No chat selected</h2><p>Create a chat to start saving messages.</p></div></div>`;
         return;
       }
@@ -1162,27 +1292,64 @@
       els.messages.scrollTop = els.messages.scrollHeight;
     }
 
-    function renderAttachments(files) {
-      return files.map(file => {
+    function renderMediaGallery() {
+      const chat = selectedChat();
+      if (!chat) {
+        els.mediaGrid.innerHTML = "";
+        els.mediaSummary.textContent = "No media saved yet.";
+        return;
+      }
+      const mediaItems = chat.messages
+        .flatMap(message => message.attachments || [])
+        .map(file => ({ file, media: mediaFor(file) }))
+        .filter(item => item.media)
+        .slice(-9)
+        .reverse();
+      const totalBytes = mediaItems.reduce((sum, item) => sum + (item.media.storedSize || item.file.storedSize || 0), 0);
+      els.mediaSummary.textContent = mediaItems.length
+        ? `${mediaItems.length} recent files shown · ${formatBytes(totalBytes)}`
+        : "No media saved in this chat yet.";
+      els.mediaGrid.innerHTML = mediaItems.map(({ file, media }) => {
+        const name = escapeHtml(file.name || media.name || "media");
+        const src = media.data || "";
         if (file.type?.startsWith("image/")) {
-          return `<div class="attachment"><img alt="${escapeHtml(file.name)}" src="${file.data}"><span class="hint">${escapeHtml(file.name)}</span></div>`;
+          return `<div class="media-tile"><img alt="${name}" src="${src}"><span>${name}</span></div>`;
         }
         if (file.type?.startsWith("video/")) {
-          return `<div class="attachment"><video src="${file.data}" controls></video><span class="hint">${escapeHtml(file.name)}</span></div>`;
+          return `<div class="media-tile"><video src="${src}"></video><span>${name}</span></div>`;
+        }
+        return `<div class="media-tile"><div class="file-chip" style="margin:8px"><div class="file-icon">F</div></div><span>${name}</span></div>`;
+      }).join("");
+    }
+
+    function renderAttachments(files) {
+      return files.map(file => {
+        const media = mediaFor(file);
+        const src = media?.data || file.data || "";
+        const storedSize = media?.storedSize || file.storedSize || file.size || 0;
+        if (file.type?.startsWith("image/")) {
+          return `<div class="attachment"><img alt="${escapeHtml(file.name)}" src="${src}"><span class="hint">${escapeHtml(file.name)} · ${formatBytes(storedSize)}</span></div>`;
+        }
+        if (file.type?.startsWith("video/")) {
+          return `<div class="attachment"><video src="${src}" controls></video><span class="hint">${escapeHtml(file.name)} · ${formatBytes(storedSize)}</span></div>`;
         }
         if (file.type?.startsWith("audio/")) {
-          return `<div class="attachment"><audio src="${file.data}" controls></audio><span class="hint">${escapeHtml(file.name)}</span></div>`;
+          return `<div class="attachment"><audio src="${src}" controls></audio><span class="hint">${escapeHtml(file.name)} · ${formatBytes(storedSize)}</span></div>`;
         }
         return `
           <div class="file-chip">
             <div class="file-icon">F</div>
             <div style="min-width:0">
               <div class="chat-name">${escapeHtml(file.name)}</div>
-              <div class="hint">${escapeHtml(file.type || "file")}</div>
+              <div class="hint">${escapeHtml(file.type || "file")} · ${formatBytes(storedSize)}</div>
             </div>
           </div>
         `;
       }).join("");
+    }
+
+    function mediaFor(file) {
+      return file.mediaId ? state.media?.[file.mediaId] : file;
     }
 
     function escapeHtml(value) {
@@ -1196,17 +1363,64 @@
 
     async function filesToAttachments(fileList) {
       const files = Array.from(fileList);
-      const maxBytes = 25 * 1024 * 1024;
+      const maxBytes = 100 * 1024 * 1024;
       const accepted = [];
       for (const file of files) {
         if (file.size > maxBytes) {
-          alert(`${file.name} is larger than 25 MB. For this first local version, keep individual files smaller or export them separately.`);
+          alert(`${file.name} is larger than 100 MB. Keep very large videos outside this local archive and export them separately.`);
           continue;
         }
-        const data = await readAsDataUrl(file);
-        accepted.push({ id: uid(), name: file.name, type: file.type, size: file.size, data });
+        const prepared = file.type.startsWith("image/")
+          ? await compressImage(file)
+          : { data: await readAsDataUrl(file), type: file.type || "application/octet-stream", name: file.name, storedSize: file.size };
+        const mediaId = uid();
+        state.media = state.media || {};
+        state.media[mediaId] = {
+          id: mediaId,
+          name: prepared.name,
+          type: prepared.type,
+          size: file.size,
+          storedSize: prepared.storedSize,
+          data: prepared.data,
+          createdAt: nowIso(),
+          compressed: prepared.compressed || false
+        };
+        accepted.push({
+          mediaId,
+          name: prepared.name,
+          type: prepared.type,
+          size: file.size,
+          storedSize: prepared.storedSize,
+          compressed: prepared.compressed || false
+        });
       }
       return accepted;
+    }
+
+    async function compressImage(file) {
+      const image = await fileToImage(file);
+      const maxSide = 1600;
+      const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.78));
+      URL.revokeObjectURL(image.src);
+      if (!blob) return { data: await readAsDataUrl(file), type: file.type, name: file.name, storedSize: file.size };
+      const data = await readAsDataUrl(blob);
+      const name = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+      return { data, type: "image/jpeg", name, storedSize: blob.size, compressed: blob.size < file.size };
+    }
+
+    function fileToImage(file) {
+      return new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = reject;
+        image.src = URL.createObjectURL(file);
+      });
     }
 
     function readAsDataUrl(file) {
@@ -1225,7 +1439,7 @@
       if (!text && !attachedFiles.length) return;
       chat.messages.push({
         id: uid(),
-        direction: els.directionSelect.value,
+        direction: selectedDirection,
         text,
         at: nowIso(),
         starred: false,
@@ -1266,6 +1480,13 @@
       } else {
         download(`${safeFileName(chat.name)}.txt`, chatToText(chat), "text/plain");
       }
+    }
+
+    function setDirection(direction) {
+      selectedDirection = direction;
+      document.querySelectorAll("[data-direction]").forEach(button => {
+        button.classList.toggle("active", button.dataset.direction === direction);
+      });
     }
 
     function exportAllJson() {
@@ -1348,9 +1569,10 @@
       try {
         setSyncStatus("Connecting to Firebase...");
         const modules = await loadFirebaseModules();
-        const app = modules.initializeApp(firebaseConfig);
+        const app = modules.getApps().length ? modules.getApps()[0] : modules.initializeApp(firebaseConfig);
         const auth = modules.getAuth(app);
         const db = modules.getFirestore(app);
+        const storage = modules.getStorage(app);
         const credential = await modules.signInAnonymously(auth);
 
         sync = {
@@ -1359,6 +1581,7 @@
           app,
           auth,
           db,
+          storage,
           user: credential.user,
           vaultId,
           passphrase,
@@ -1378,7 +1601,8 @@
       const appModule = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js");
       const authModule = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js");
       const firestoreModule = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js");
-      return { ...appModule, ...authModule, ...firestoreModule };
+      const storageModule = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js");
+      return { ...appModule, ...authModule, ...firestoreModule, ...storageModule };
     }
 
     function scheduleCloudPush() {
@@ -1394,7 +1618,8 @@
       }
       try {
         if (!silent) setSyncStatus("Encrypting and uploading...");
-        const encrypted = await encryptText(JSON.stringify(state), sync.passphrase);
+        if (!silent) await uploadCloudMedia();
+        const encrypted = await encryptText(JSON.stringify(cloudSyncState()), sync.passphrase);
         const docRef = sync.modules.doc(sync.db, "vaults", sync.vaultId);
         await sync.modules.setDoc(docRef, {
           encrypted,
@@ -1427,9 +1652,15 @@
         const text = await decryptText(encrypted, sync.passphrase);
         const nextState = JSON.parse(text);
         if (!Array.isArray(nextState.chats)) throw new Error("Cloud backup is not a valid ChatVault archive.");
+        const localMedia = state.media || {};
+        nextState.media = Object.fromEntries(Object.entries(nextState.media || {}).map(([id, media]) => [
+          id,
+          localMedia[id]?.data ? { ...media, data: localMedia[id].data } : media
+        ]));
         state = nextState;
         selectedChatId = state.chats[0]?.id || null;
         await saveState();
+        await downloadCloudMedia();
         render();
         setSyncStatus(`Pulled cloud copy at ${new Date().toLocaleTimeString()}.`);
       } catch (error) {
@@ -1463,6 +1694,18 @@
       };
     }
 
+    async function encryptBytes(bytes, passphrase) {
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const key = await encryptionKey(passphrase, salt);
+      const cipher = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, bytes);
+      return {
+        salt: arrayToBase64(salt),
+        iv: arrayToBase64(iv),
+        data: arrayToBase64(new Uint8Array(cipher))
+      };
+    }
+
     async function decryptText(payload, passphrase) {
       const salt = base64ToArray(payload.salt);
       const iv = base64ToArray(payload.iv);
@@ -1470,6 +1713,15 @@
       const key = await encryptionKey(passphrase, salt);
       const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, data);
       return new TextDecoder().decode(plain);
+    }
+
+    async function decryptBytes(payload, passphrase) {
+      const salt = base64ToArray(payload.salt);
+      const iv = base64ToArray(payload.iv);
+      const data = base64ToArray(payload.data);
+      const key = await encryptionKey(passphrase, salt);
+      const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, data);
+      return new Uint8Array(plain);
     }
 
     function arrayToBase64(bytes) {
@@ -1480,6 +1732,96 @@
 
     function base64ToArray(value) {
       return Uint8Array.from(atob(value), char => char.charCodeAt(0));
+    }
+
+    function cloudSyncState() {
+      return {
+        ...state,
+        media: Object.fromEntries(Object.entries(state.media || {}).map(([id, media]) => [id, {
+          id,
+          name: media.name,
+          type: media.type,
+          size: media.size,
+          storedSize: media.storedSize,
+          createdAt: media.createdAt,
+          compressed: media.compressed || false,
+          cloudPath: media.cloudPath || null,
+          cloudUploadedAt: media.cloudUploadedAt || null,
+          encryptedCloudMedia: Boolean(media.cloudPath)
+        }]))
+      };
+    }
+
+    async function uploadCloudMedia() {
+      if (!sync.enabled) {
+        alert("Connect cloud sync first.");
+        return;
+      }
+      const mediaEntries = Object.entries(state.media || {}).filter(([, media]) => media.data && !media.cloudPath);
+      if (!mediaEntries.length) {
+        setSyncStatus("No new local media to upload.");
+        return;
+      }
+      let done = 0;
+      for (const [id, media] of mediaEntries) {
+        setSyncStatus(`Encrypting media ${done + 1} of ${mediaEntries.length}...`);
+        const bytes = dataUrlToBytes(media.data);
+        const encrypted = await encryptBytes(bytes, sync.passphrase);
+        const payload = JSON.stringify({
+          version: 1,
+          name: media.name,
+          type: media.type,
+          size: media.size,
+          storedSize: media.storedSize,
+          encrypted
+        });
+        const path = `vaults/${safeCloudName(sync.vaultId)}/media/${id}.json`;
+        const storageRef = sync.modules.ref(sync.storage, path);
+        await sync.modules.uploadString(storageRef, payload, "raw", {
+          contentType: "application/json",
+          customMetadata: { encrypted: "true", vaultId: sync.vaultId }
+        });
+        media.cloudPath = path;
+        media.cloudUploadedAt = nowIso();
+        done += 1;
+      }
+      await saveState();
+      setSyncStatus(`Uploaded ${done} encrypted media files.`);
+    }
+
+    async function downloadCloudMedia() {
+      if (!sync.enabled) {
+        alert("Connect cloud sync first.");
+        return;
+      }
+      const mediaEntries = Object.entries(state.media || {}).filter(([, media]) => media.cloudPath && !media.data);
+      if (!mediaEntries.length) {
+        setSyncStatus("No missing cloud media to download.");
+        return;
+      }
+      let done = 0;
+      for (const [id, media] of mediaEntries) {
+        setSyncStatus(`Downloading media ${done + 1} of ${mediaEntries.length}...`);
+        const storageRef = sync.modules.ref(sync.storage, media.cloudPath);
+        const url = await sync.modules.getDownloadURL(storageRef);
+        const response = await fetch(url);
+        const payload = await response.json();
+        const bytes = await decryptBytes(payload.encrypted, sync.passphrase);
+        media.data = bytesToDataUrl(bytes, media.type || payload.type || "application/octet-stream");
+        media.storedSize = media.storedSize || bytes.length;
+        done += 1;
+      }
+      await saveState();
+      render();
+      setSyncStatus(`Downloaded ${done} encrypted media files.`);
+    }
+
+    function bytesToDataUrl(bytes, type) {
+      return `data:${type};base64,${arrayToBase64(bytes)}`;
+    }
+
+    function safeCloudName(name) {
+      return name.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 120) || "vault";
     }
 
     async function installApp() {
@@ -1530,17 +1872,148 @@
     function chatToHtmlBody(chat) {
       return `<h1>${escapeHtml(chat.name)}</h1><p>Exported from ChatVault Local on ${new Date().toLocaleString()}</p>${chat.messages.map(message => {
         const files = (message.attachments || []).map(file => {
-          if (file.type?.startsWith("image/")) return `<div><img alt="${escapeHtml(file.name)}" src="${file.data}"></div>`;
-          if (file.type?.startsWith("video/")) return `<div><video src="${file.data}" controls></video></div>`;
-          if (file.type?.startsWith("audio/")) return `<div><audio src="${file.data}" controls></audio></div>`;
+          const media = mediaFor(file);
+          const src = media?.data || file.data || "";
+          if (file.type?.startsWith("image/")) return `<div><img alt="${escapeHtml(file.name)}" src="${src}"></div>`;
+          if (file.type?.startsWith("video/")) return `<div><video src="${src}" controls></video></div>`;
+          if (file.type?.startsWith("audio/")) return `<div><audio src="${src}" controls></audio></div>`;
           return `<div>File: ${escapeHtml(file.name)}</div>`;
         }).join("");
         return `<div class="msg ${message.direction}">${files}<div>${escapeHtml(message.text)}</div><div class="meta">${message.direction} · ${new Date(message.at).toLocaleString()}${message.starred ? " · starred" : ""}</div></div>`;
       }).join("")}`;
     }
 
+    async function exportZipWithMedia() {
+      const files = [];
+      files.push({
+        path: "archive.json",
+        data: textToBytes(JSON.stringify(state, null, 2))
+      });
+      files.push({
+        path: "archive.html",
+        data: textToBytes(`<!doctype html><html><head><meta charset="utf-8"><title>ChatVault Export</title><style>body{font-family:Arial,sans-serif;line-height:1.45;max-width:900px;margin:32px auto;padding:0 16px}.msg{margin:10px 0;padding:8px 10px;border:1px solid #ddd;border-radius:8px}.sent{background:#e6f7df}.received{background:#fff}.meta{font-size:12px;color:#666}img,video{max-width:280px;border-radius:8px}</style></head><body>${state.chats.map(chatToHtmlBody).join("<hr>")}</body></html>`)
+      });
+
+      state.chats.forEach(chat => {
+        files.push({
+          path: `chats/${safeFileName(chat.name)}.txt`,
+          data: textToBytes(chatToText(chat))
+        });
+      });
+
+      Object.values(state.media || {}).forEach(media => {
+        if (!media.data) return;
+        const ext = extensionFor(media.name, media.type);
+        files.push({
+          path: `media/${safeFileName(media.name.replace(/\.[^.]+$/, ""))}-${media.id.slice(0, 8)}${ext}`,
+          data: dataUrlToBytes(media.data)
+        });
+      });
+
+      const blob = new Blob([buildZip(files)], { type: "application/zip" });
+      downloadBlob(`chatvault-complete-${dateStamp()}.zip`, blob);
+    }
+
+    function buildZip(files) {
+      const localParts = [];
+      const centralParts = [];
+      let offset = 0;
+      files.forEach(file => {
+        const nameBytes = textToBytes(file.path);
+        const data = file.data;
+        const crc = crc32(data);
+        const local = concatBytes([
+          u32(0x04034b50), u16(20), u16(0), u16(0), u16(0), u16(0),
+          u32(crc), u32(data.length), u32(data.length), u16(nameBytes.length), u16(0),
+          nameBytes, data
+        ]);
+        localParts.push(local);
+        centralParts.push(concatBytes([
+          u32(0x02014b50), u16(20), u16(20), u16(0), u16(0), u16(0), u16(0),
+          u32(crc), u32(data.length), u32(data.length), u16(nameBytes.length), u16(0), u16(0),
+          u16(0), u16(0), u32(0), u32(offset), nameBytes
+        ]));
+        offset += local.length;
+      });
+      const central = concatBytes(centralParts);
+      const end = concatBytes([
+        u32(0x06054b50), u16(0), u16(0), u16(files.length), u16(files.length),
+        u32(central.length), u32(offset), u16(0)
+      ]);
+      return concatBytes([...localParts, central, end]);
+    }
+
+    function textToBytes(text) {
+      return new TextEncoder().encode(text);
+    }
+
+    function dataUrlToBytes(dataUrl) {
+      const base64 = dataUrl.split(",")[1] || "";
+      return base64ToArray(base64);
+    }
+
+    function dataUrlBytes(dataUrl) {
+      return dataUrlToBytes(dataUrl).length;
+    }
+
+    function extensionFor(name, type) {
+      const match = name.match(/\.[a-z0-9]{1,8}$/i);
+      if (match) return match[0].toLowerCase();
+      if (type === "image/jpeg") return ".jpg";
+      if (type === "image/png") return ".png";
+      if (type === "image/webp") return ".webp";
+      if (type === "video/mp4") return ".mp4";
+      if (type === "audio/mpeg") return ".mp3";
+      return ".bin";
+    }
+
+    function concatBytes(parts) {
+      const total = parts.reduce((sum, part) => sum + part.length, 0);
+      const out = new Uint8Array(total);
+      let cursor = 0;
+      parts.forEach(part => {
+        out.set(part, cursor);
+        cursor += part.length;
+      });
+      return out;
+    }
+
+    function u16(value) {
+      const out = new Uint8Array(2);
+      new DataView(out.buffer).setUint16(0, value, true);
+      return out;
+    }
+
+    function u32(value) {
+      const out = new Uint8Array(4);
+      new DataView(out.buffer).setUint32(0, value >>> 0, true);
+      return out;
+    }
+
+    function crc32(bytes) {
+      let crc = -1;
+      for (let i = 0; i < bytes.length; i++) {
+        crc = (crc >>> 8) ^ CRC_TABLE[(crc ^ bytes[i]) & 0xff];
+      }
+      return (crc ^ -1) >>> 0;
+    }
+
+    const CRC_TABLE = (() => {
+      const table = new Uint32Array(256);
+      for (let i = 0; i < 256; i++) {
+        let c = i;
+        for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+        table[i] = c >>> 0;
+      }
+      return table;
+    })();
+
     function download(filename, content, type) {
       const blob = new Blob([content], { type });
+      downloadBlob(filename, blob);
+    }
+
+    function downloadBlob(filename, blob) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -1631,10 +2104,16 @@
       attachedFiles = await filesToAttachments(els.fileInput.files);
       els.attachBtn.textContent = attachedFiles.length ? String(attachedFiles.length) : "+";
     });
+    document.querySelectorAll("[data-direction]").forEach(button => {
+      button.addEventListener("click", () => setDirection(button.dataset.direction));
+    });
     els.searchInput.addEventListener("input", renderChatList);
     els.exportChatBtn.addEventListener("click", () => exportChat("txt"));
+    els.exportTxtBtn.addEventListener("click", () => exportChat("txt"));
+    els.exportHtmlBtn.addEventListener("click", () => exportChat("html"));
     els.exportAllBtn.addEventListener("click", exportAllJson);
     els.backupHtmlBtn.addEventListener("click", exportAllHtml);
+    els.exportZipBtn.addEventListener("click", exportZipWithMedia);
     els.importBtn.addEventListener("click", () => els.importInput.click());
     els.importInput.addEventListener("change", async () => {
       const file = els.importInput.files[0];
@@ -1676,6 +2155,8 @@
     els.connectSyncBtn.addEventListener("click", connectCloudSync);
     els.pushSyncBtn.addEventListener("click", () => pushCloudSync(false));
     els.pullSyncBtn.addEventListener("click", pullCloudSync);
+    els.pushMediaSyncBtn.addEventListener("click", uploadCloudMedia);
+    els.pullMediaSyncBtn.addEventListener("click", downloadCloudMedia);
     window.addEventListener("beforeinstallprompt", event => {
       event.preventDefault();
       installPrompt = event;
